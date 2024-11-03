@@ -1,0 +1,55 @@
+substitutions:
+  # Params with default values
+  _PROJECT_NAME: wishinsight-prod
+  _PROJECT_REGION: us-west1
+  _CPU: "2"
+  _COCURRENCY: "20"
+  _TIMEOUT: "30"
+  _CONTAINER_REGION: eu.gcr.io
+  _PUBLIC_IMAGE_BUCKET: dev-public
+  _FRONTEND_URL: dev.wishinsight.com
+  _ENVIRONMENT: development
+steps:
+  # Build Container image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - "build"
+      - "-t"
+      - "${_CONTAINER_REGION}/$PROJECT_ID/${_PROJECT_NAME}:${SHORT_SHA}"
+      - "."
+  # Push Container image to Container Repo
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "push"
+      - "${_CONTAINER_REGION}/$PROJECT_ID/${_PROJECT_NAME}:${SHORT_SHA}"
+  # Tag Container image with Project Id
+  - name: "gcr.io/cloud-builders/gcloud"
+    args:
+      - "container"
+      - "images"
+      - "add-tag"
+      - "${_CONTAINER_REGION}/$PROJECT_ID/${_PROJECT_NAME}:${SHORT_SHA}"
+      - "${_CONTAINER_REGION}/$PROJECT_ID/${_PROJECT_NAME}:latest"
+  # Deploy Container image to Cloud Run
+  - name: "gcr.io/cloud-builders/gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "${_PROJECT_NAME}"
+      - "--image"
+      - "${_CONTAINER_REGION}/$PROJECT_ID/${_PROJECT_NAME}:${SHORT_SHA}"
+      - "--region"
+      - "${_PROJECT_REGION}"
+      - "--update-env-vars"
+      - "GCLOUD_PROJECT=$PROJECT_ID,NODE_ENV=production,BRANCH=${BRANCH_NAME},RECAPTCHA=${_RECAPTCHA},BUCKET=${_PUBLIC_IMAGE_BUCKET},FRONTEND_URL=${_FRONTEND_URL},ENVIRONMENT=${_ENVIRONMENT}"
+      - "--memory"
+      - "${_MEMORY}"
+      - "--concurrency"
+      - "${_COCURRENCY}"
+      - "--timeout"
+      - "${_TIMEOUT}"
+      - "--cpu"
+      - "${_CPU}"
+      - "--platform"
+      - "managed"
+      - "--allow-unauthenticated"
